@@ -13,24 +13,24 @@ from typing import Dict, Any, Optional
 def generate_block_token(user_id: int, ip_address: str, threat_data: Dict[str, Any]) -> str:
     """
     Generate a secure one-time token for IP blocking action.
-    
+
     Args:
         user_id: User ID who will receive the email
         ip_address: IP address to be blocked
         threat_data: Complete threat information
-    
+
     Returns:
         Secure token string
     """
     token_data = {
-        'user_id': user_id,
-        'ip_address': ip_address,
-        'threat_type': threat_data.get('threat_type', 'Unknown'),
-        'risk_score': threat_data.get('risk_score', 0),
-        'timestamp': datetime.utcnow().isoformat(),
-        'nonce': secrets.token_urlsafe(16)
+        "user_id": user_id,
+        "ip_address": ip_address,
+        "threat_type": threat_data.get("threat_type", "Unknown"),
+        "risk_score": threat_data.get("risk_score", 0),
+        "timestamp": datetime.utcnow().isoformat(),
+        "nonce": secrets.token_urlsafe(16),
     }
-    
+
     # Encode token (in production, use JWT or encrypted tokens)
     token = secrets.token_urlsafe(32)
     return token
@@ -41,58 +41,62 @@ def get_threat_email_template(
     threat_data: Dict[str, Any],
     block_url: str = None,
     unsubscribe_url: str = "",
-    is_subscribed: bool = True
+    is_subscribed: bool = True,
 ) -> str:
     """
     Generate HTML email template for high-risk threat notification.
     Supports BRIEF (free users) and EXPANDED (premium users) formats.
     Simple format for non-subscribers.
-    
+
     Args:
         user_name: Recipient's name
         threat_data: Threat information including IP, type, score, summary, notification_type
         block_url: URL for blocking action (only shown if subscribed and IP exists)
         unsubscribe_url: URL to unsubscribe from notifications
         is_subscribed: Whether user has active subscription
-    
+
     Returns:
         HTML email content
     """
-    ip_address = threat_data.get('ip_address', 'Unknown')
-    threat_type = threat_data.get('threat_type', 'Unknown')
-    risk_score = threat_data.get('risk_score', 0)
-    summary = threat_data.get('summary', 'Review this activity in your dashboard')
-    notification_type = threat_data.get('notification_type', 'brief')
-    has_ip = ip_address and ip_address != 'Unknown' and ip_address != 'N/A'
-    
+    ip_address = threat_data.get("ip_address", "Unknown")
+    threat_type = threat_data.get("threat_type", "Unknown")
+    risk_score = threat_data.get("risk_score", 0)
+    summary = threat_data.get("summary", "Review this activity in your dashboard")
+    notification_type = threat_data.get("notification_type", "brief")
+    has_ip = ip_address and ip_address != "Unknown" and ip_address != "N/A"
+
     # Color coding based on risk (High: >=75 Red, Medium: 50-74 Yellow, Low: <50 Green)
     if risk_score >= 75:
-        risk_color = '#dc3545'  # Red for high risk
-        risk_label = 'HIGH'
+        risk_color = "#dc3545"  # Red for high risk
+        risk_label = "HIGH"
     elif risk_score >= 50:
-        risk_color = '#ffc107'  # Yellow for medium
-        risk_label = 'MEDIUM'
+        risk_color = "#ffc107"  # Yellow for medium
+        risk_label = "MEDIUM"
     else:
-        risk_color = '#28a745'  # Green for low
-        risk_label = 'LOW'
-    
+        risk_color = "#28a745"  # Green for low
+        risk_label = "LOW"
+
     # Obfuscate IP address to avoid spam filters
     if has_ip:
-        ip_parts = str(ip_address).split('.')
+        ip_parts = str(ip_address).split(".")
         if len(ip_parts) == 4:
             ip_display = f"{ip_parts[0]}.{ip_parts[1]}.xxx.xxx"
         else:
             ip_display = "Address (view in dashboard)"
     else:
-        ip_display = "No IP Address" if 'domain' in threat_type.lower() or 'url' in threat_type.lower() else "N/A"
-    
+        ip_display = (
+            "No IP Address"
+            if "domain" in threat_type.lower() or "url" in threat_type.lower()
+            else "N/A"
+        )
+
     # Expanded content for premium users
-    expanded_section = ''
-    if notification_type == 'expanded':
-        prevention = threat_data.get('prevention', '')
-        prevention_steps = threat_data.get('prevention_steps', '')
-        category = threat_data.get('category', 'Unknown')
-        
+    expanded_section = ""
+    if notification_type == "expanded":
+        prevention = threat_data.get("prevention", "")
+        prevention_steps = threat_data.get("prevention_steps", "")
+        category = threat_data.get("category", "Unknown")
+
         expanded_section = f"""
                             <!-- PREMIUM: Expanded Details -->
                             <table width="100%" cellpadding="0" cellspacing="0" style="margin:15px 0;">
@@ -119,7 +123,7 @@ def get_threat_email_template(
                                 </p>
                             </div>
 """
-    
+
     html = f"""
 <!DOCTYPE html>
 <html>
@@ -187,24 +191,21 @@ def get_threat_email_template(
 </body>
 </html>
     """
-    
+
     return html.strip()
 
 
 def get_confirmation_email_template(
-    user_name: str,
-    ip_address: str,
-    threat_type: str,
-    blocked_at: str
+    user_name: str, ip_address: str, threat_type: str, blocked_at: str
 ) -> str:
     """Generate HTML email for successful IP block confirmation."""
     # Obfuscate IP to avoid spam filters
-    ip_parts = ip_address.split('.')
+    ip_parts = ip_address.split(".")
     if len(ip_parts) == 4:
         ip_display = f"{ip_parts[0]}.{ip_parts[1]}.xxx.xxx"
     else:
         ip_display = "Network Address"
-    
+
     html = f"""
 <!DOCTYPE html>
 <html>
@@ -269,12 +270,12 @@ def send_threat_notification_email(
     threat_data: Dict[str, Any],
     block_url: str = None,
     unsubscribe_url: str = "",
-    is_premium: bool = False
+    is_premium: bool = False,
 ) -> bool:
     """
     Send threat notification email.
     Shows action button only for PREMIUM users with IP-based threats.
-    
+
     Args:
         mail: Flask-Mail instance
         recipient_email: Recipient's email address
@@ -283,39 +284,47 @@ def send_threat_notification_email(
         block_url: URL for blocking action
         unsubscribe_url: URL to unsubscribe
         is_premium: Whether user has premium subscription (for blocking)
-    
+
     Returns:
         True if email sent successfully, False otherwise
     """
     try:
         # Sanitize subject to avoid Gmail security filters
-        risk_score = threat_data.get('risk_score', 0)
-        threat_type = threat_data.get('threat_type', 'Activity')
+        risk_score = threat_data.get("risk_score", 0)
+        threat_type = threat_data.get("threat_type", "Activity")
         subject = f"Security Alert - Priority {risk_score} - {threat_type[:20]}"
-        
+
         # Determine if blocking button should be shown (premium + has IP)
-        ip_val = threat_data.get('ip_address', 'N/A')
-        has_ip = ip_val and ip_val not in ['N/A', 'Unknown', '']
+        ip_val = threat_data.get("ip_address", "N/A")
+        has_ip = ip_val and ip_val not in ["N/A", "Unknown", ""]
         show_blocking = is_premium and has_ip
-        
+
         html_body = get_threat_email_template(
             user_name=recipient_name,
             threat_data=threat_data,
             block_url=block_url,
             unsubscribe_url=unsubscribe_url,
-            is_subscribed=show_blocking  # Only show block button if premium with IP
+            is_subscribed=show_blocking,  # Only show block button if premium with IP
         )
-        
+
         # Plain text fallback - sanitized to avoid spam filters
         ip_info = f"- Source: {threat_data.get('ip_address', 'N/A')}\n" if has_ip else ""
-        
+
         if is_premium and has_ip:
-            action_info = f"\nTo block this threat, visit: {block_url}" if block_url else "\nView details in your dashboard." if block_url else "\nView details in your dashboard."
+            action_info = (
+                f"\nTo block this threat, visit: {block_url}"
+                if block_url
+                else (
+                    "\nView details in your dashboard."
+                    if block_url
+                    else "\nView details in your dashboard."
+                )
+            )
         elif is_premium:
             action_info = "\nView details in your dashboard."
         else:
             action_info = "\nUpgrade to Premium for instant blocking controls."
-        
+
         text_body = f"""
 Security Activity Alert
 
@@ -331,14 +340,9 @@ Details:
 
 This is an automated threat notification from your CTI Platform.
         """
-        
-        msg = Message(
-            subject=subject,
-            recipients=[recipient_email],
-            body=text_body,
-            html=html_body
-        )
-        
+
+        msg = Message(subject=subject, recipients=[recipient_email], body=text_body, html=html_body)
+
         for attempt in range(2):
             try:
                 # Use a fresh SMTP connection per send; this is more resilient on flaky links.
@@ -347,9 +351,11 @@ This is an automated threat notification from your CTI Platform.
                 print(f"[SUCCESS] Threat notification email sent to {recipient_email}")
                 return True
             except Exception as send_err:
-                print(f"[WARNING] Threat email attempt {attempt + 1} failed for {recipient_email}: {send_err}")
+                print(
+                    f"[WARNING] Threat email attempt {attempt + 1} failed for {recipient_email}: {send_err}"
+                )
         return False
-        
+
     except Exception as e:
         print(f"[ERROR] Failed to send threat notification email to {recipient_email}: {str(e)}")
         return False
@@ -361,11 +367,11 @@ def send_confirmation_email(
     recipient_name: str,
     ip_address: str,
     threat_type: str,
-    blocked_at: str
+    blocked_at: str,
 ) -> bool:
     """
     Send confirmation email after successful IP block.
-    
+
     Args:
         mail: Flask-Mail instance
         recipient_email: Recipient's email address
@@ -373,26 +379,26 @@ def send_confirmation_email(
         ip_address: Blocked IP address
         threat_type: Type of threat
         blocked_at: Timestamp when blocked
-    
+
     Returns:
         True if email sent successfully, False otherwise
     """
     try:
         # Sanitize subject to avoid spam filters
-        ip_parts = ip_address.split('.')
+        ip_parts = ip_address.split(".")
         if len(ip_parts) == 4:
             ip_masked = f"{ip_parts[0]}.{ip_parts[1]}.xxx.xxx"
         else:
             ip_masked = "Address"
         subject = f"Action Confirmed - Network Protection Updated ({ip_masked})"
-        
+
         html_body = get_confirmation_email_template(
             user_name=recipient_name,
             ip_address=ip_address,
             threat_type=threat_type,
-            blocked_at=blocked_at
+            blocked_at=blocked_at,
         )
-        
+
         # Plain text fallback
         text_body = f"""
 Action Completed Successfully
@@ -410,13 +416,8 @@ This address has been processed and your network protection updated accordingly.
 
 © {datetime.utcnow().year} Cyber Threat Intelligence Platform
         """
-        
-        msg = Message(
-            subject=subject,
-            recipients=[recipient_email],
-            body=text_body,
-            html=html_body
-        )
+
+        msg = Message(subject=subject, recipients=[recipient_email], body=text_body, html=html_body)
 
         for attempt in range(2):
             try:
@@ -425,9 +426,11 @@ This address has been processed and your network protection updated accordingly.
                 print(f"[SUCCESS] Confirmation email sent to {recipient_email}")
                 return True
             except Exception as send_err:
-                print(f"[WARNING] Confirmation email attempt {attempt + 1} failed for {recipient_email}: {send_err}")
+                print(
+                    f"[WARNING] Confirmation email attempt {attempt + 1} failed for {recipient_email}: {send_err}"
+                )
         return False
-        
+
     except Exception as e:
         print(f"[ERROR] Failed to send confirmation email to {recipient_email}: {str(e)}")
         return False
